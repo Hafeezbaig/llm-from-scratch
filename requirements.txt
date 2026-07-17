@@ -1,0 +1,5 @@
+# Core dependencies for building and training the model.
+# Versions below are the ones this project is developed and tested against.
+# (FastAPI / uvicorn get added later, at the deployment stage.)
+torch==2.8.0
+matplotlib==3.9.4
