@@ -2,8 +2,9 @@
 
 Every other module imports its settings from here, so there is exactly one place
 to change them. Only the settings that are actually used so far live here
-(Stage 1 = data + tokenizer). Model hyper-parameters such as ``n_layer`` and
-``n_head`` are added later, in Stage 3, when the transformer is built.
+(Stage 1 = data + tokenizer, Stage 2 = training the bigram baseline). Model
+hyper-parameters such as ``n_layer`` and ``n_head`` are added later, in Stage 3,
+when the transformer is built.
 """
 
 import torch
@@ -15,6 +16,14 @@ TRAIN_SPLIT = 0.9              # fraction used for training (the rest = validati
 # --- Batching -----------------------------------------------------------------
 BLOCK_SIZE = 128   # context length: how many characters the model sees at once
 BATCH_SIZE = 32    # how many independent sequences we process in parallel
+
+# --- Training -----------------------------------------------------------------
+# Tuned for the Stage 2 bigram baseline. The transformer (Stage 3) will need a
+# smaller learning rate, so expect these to change then.
+LEARNING_RATE = 1e-2   # how big a step the optimizer takes on each update
+MAX_ITERS = 3000       # how many training steps to run
+EVAL_INTERVAL = 300    # measure train/val loss every this many steps
+EVAL_ITERS = 200       # batches averaged per loss measurement (less noisy)
 
 # --- Reproducibility ----------------------------------------------------------
 SEED = 1337        # fixed seed so separate runs are comparable

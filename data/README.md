@@ -4,7 +4,7 @@ The training corpus is [`input.txt`](input.txt): the text of six public-domain
 **Sherlock Holmes** books by Arthur Conan Doyle, downloaded from
 [Project Gutenberg](https://www.gutenberg.org/) and concatenated into one file.
 
-- ~2.7 million characters of Victorian English prose (dialogue-heavy, which
+- ~2.6 million characters of Victorian English prose (dialogue-heavy, which
   makes the model's later output recognisably "Holmes-ish").
 - Every title is in the **public domain** in the United States.
 - Project Gutenberg's license header/footer is stripped out; only the book text
