@@ -22,8 +22,9 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 import torch  # noqa: E402
 
 import config  # noqa: E402
-from bigram import BigramLanguageModel, train  # noqa: E402
+from bigram import BigramLanguageModel  # noqa: E402
 from data import build_dataset, get_batch  # noqa: E402
+from train import train  # noqa: E402
 
 SAMPLE = "Hello, Watson! The game is afoot.\n" * 100
 
@@ -70,7 +71,8 @@ def test_training_lowers_loss():
     """A short training run must push the loss well below where it started."""
     _, model, train_data, val_data = _setup()
     history = train(model, train_data, val_data, max_iters=300,
-                    eval_interval=100, eval_iters=10, device="cpu",
+                    eval_interval=100, eval_iters=10,
+                    learning_rate=config.BIGRAM_LEARNING_RATE, device="cpu",
                     verbose=False)
     first_train, last_train = history[0][1], history[-1][1]
     assert last_train < first_train - 1.0

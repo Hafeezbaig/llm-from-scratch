@@ -87,7 +87,7 @@ How big is each nudge? That's the **learning rate**, and ours is 0.01. You can s
 | 0.01 (ours) | Loss reached 2.42. |
 | 1.0 (huge nudges) | Loss dropped fast, then bounced around 2.48 and never got as low as 2.42. |
 
-> In the code: `train()` in [bigram.py](../bigram.py). Step 4 is three lines:
+> In the code: `train()` in [train.py](../train.py). It moved there in Stage 3, so both robots share it. Step 4 is three lines:
 > - `optimizer.zero_grad()` wipes the old nudge directions.
 > - `loss.backward()` works out the new nudge direction for every number.
 > - `optimizer.step()` does the nudging.
@@ -154,7 +154,7 @@ Add one fact: *one-letter memory, so it gets stuck at 2.4.*
 | Marking the guess | loss, `F.cross_entropy` |
 | Nudge direction | `loss.backward()` |
 | Doing the nudge | `optimizer.step()` (AdamW) |
-| Nudge size | `LEARNING_RATE` in [config.py](../config.py) |
+| Nudge size | `BIGRAM_LEARNING_RATE` in [config.py](../config.py) |
 | Report card | `estimate_loss()`, train loss and val loss |
 | Weighted dice | `torch.multinomial` |
 
@@ -171,5 +171,5 @@ Add one fact: *one-letter memory, so it gets stuck at 2.4.*
 1. Read one chapter, look away, and say it out loud in one sentence.
 2. The next day, before you read anything, write the five words from memory. Then check.
 3. Run `.venv/bin/python bigram.py` yourself and watch the report card appear.
-4. Open [bigram.py](../bigram.py) and find the four study steps inside `train()`.
-5. Change `LEARNING_RATE` in [config.py](../config.py) to `0.0001`, run it again, and see the loss barely move. Then set it back to `1e-2`.
+4. Open [train.py](../train.py) and find the four study steps inside `train()`.
+5. Change `BIGRAM_LEARNING_RATE` in [config.py](../config.py) to `0.0001`, run it again, and see the loss barely move. Then set it back to `1e-2`.
