@@ -22,8 +22,8 @@ Apple Silicon (MPS).
 - [x] **Stage 1 — Data + tokenizer**
 - [x] **Stage 2 — Bigram baseline** (a deliberately dumb model to beat)
 - [x] **Stage 3 — The transformer** (self-attention, multi-head, blocks)
-- [x] **Stage 4 — Train properly + loss curves** ← *you are here*
-- [ ] Stage 5 — Generation (temperature, top-k sampling)
+- [x] **Stage 4 — Train properly + loss curves**
+- [x] **Stage 5 — Generation (temperature, top-k sampling)** ← *you are here*
 - [ ] Stage 6 — Refactor, one experiment, writeup
 - [ ] Stage 7 — Live demo (FastAPI backend)
 
@@ -148,6 +148,64 @@ all round.”
   saving only on a new best, a checkpoint rebuilding the identical model, and the
   plot being a real PNG. See [tests/test_stage4.py](tests/test_stage4.py).
 
+### Stage 5 — done
+
+Two knobs that control how the trained model writes, and
+[generate.py](generate.py) to use them. There's no retraining: it loads the
+Stage 4 model from `checkpoints/gpt.pt` and writes in seconds.
+
+- **Temperature** divides the model's scores before they become probabilities.
+  Below 1 sharpens them (safer, more repetitive); above 1 flattens them (more
+  inventive, more mistakes). See `next_char_probs` in [model.py](model.py).
+- **Top-k** keeps only the k likeliest next characters and gives every other
+  character zero chance.
+
+How the knobs reshape a single pick, the character after `the game is a`:
+
+| | space | n | l | newline | the other 98 characters |
+|---|---|---|---|---|---|
+| temperature 0.5 | 93.5% | 2.3% | 1.9% | 1.3% | 1.0% |
+| temperature 1.0 (the model's own odds) | 60.8% | 9.5% | 8.6% | 7.3% | 13.8% |
+| temperature 2.0 | 26.4% | 10.5% | 9.9% | 9.1% | 44.1% |
+| temperature 1.0, top-k 3 | 77.1% | 12.1% | 10.8% | 0% | 0% |
+
+The same start written with seven settings (`python generate.py --compare`,
+4 pieces of 500 characters each):
+
+| Setting | Temperature | Top-k | Real words | Variety |
+|---|---|---|---|---|
+| Always the favourite | 1.0 | 1 | 100% | 28% |
+| Careful | 0.5 | off | 99% | 57% |
+| **A bit careful (the default)** | **0.8** | **off** | **99%** | **67%** |
+| The model's own odds | 1.0 | off | 95% | 75% |
+| Bold | 1.5 | off | 79% | 87% |
+| Wild | 2.0 | off | 52% | 93% |
+| Wild + shortlist of 5 | 2.0 | 5 | 89% | 76% |
+
+*Real words* is the share of words that also appear in the books. *Variety* is
+distinct words ÷ all words; low means the text repeats itself. Raising the
+temperature trades sense for variety, and top-k wins much of the sense back:
+
+```
+top-k 1:          “I have no doubt that I have no doubt that I have no doubt that
+temperature 0.8:  On the Duke of the City has been formed to me again, and that the
+                  hansom had been a little prospect at the provision of the station.
+temperature 2.0:  VPaYkºrl’s Sherlock; and poson ChooseleN had iunbaldties.”
+```
+
+```bash
+python generate.py                                    # 500 characters, temperature 0.8
+python generate.py --prompt "Sherlock Holmes" --temperature 0.5 --top_k 10
+python generate.py --peek "the game is a"             # the odds for the next character
+python generate.py --compare                          # the table above (~1 min on MPS)
+```
+
+- **Tests** — default knobs change nothing, temperature sharpens or flattens
+  without reordering, top-k keeps exactly k, bad values are refused, top-k 1
+  always writes the same text, every pick stays on the shortlist, and
+  `generate.py` loads a saved model, swaps in curly quotes and explains unknown
+  characters. See [tests/test_stage5.py](tests/test_stage5.py).
+
 ---
 
 ## Quickstart
@@ -175,6 +233,10 @@ python tests/test_stage3.py
 #    (~17 min on an M5 Mac at full load, or ~7 min on a cloud GPU via sky.yaml)
 python tests/test_stage4.py
 python train.py
+
+# 7. See Stage 5 working: tests, then write with the trained model
+python tests/test_stage5.py
+python generate.py --compare
 ```
 
 Stage 1 prints the tests passing, followed by a demo showing the vocabulary
@@ -182,7 +244,8 @@ size, an encode/decode round-trip, and a sample batch mapping each character to
 its next-character target. `bigram.py` and `train.py` each print a sample from
 the untrained model, the train/val loss as training goes, then a sample after
 training. `train.py` also saves the best model to `checkpoints/gpt.pt` and the
-loss graph to `assets/loss_curve.png`.
+loss graph to `assets/loss_curve.png`. `generate.py` needs that saved model; it
+writes the same text every time for the same `--seed` and settings.
 
 ---
 
@@ -197,13 +260,15 @@ llm-from-scratch/
 ├── model.py             # Stage 3 transformer: attention, blocks, the GPT class
 ├── train.py             # training loop (shared by both models), LR schedule,
 │                        #   checkpoints, loss plot + trains the GPT
+├── generate.py          # Stage 5: writes with the saved model (temperature, top-k)
 ├── scripts/
 │   └── prepare_data.py  # downloads & cleans the dataset (reproducible)
 ├── tests/
 │   ├── test_stage1.py   # tokenizer + batching tests, with a live demo
 │   ├── test_stage2.py   # bigram model, training and generation tests
 │   ├── test_stage3.py   # each transformer piece, no-peeking check, training
-│   └── test_stage4.py   # dropout, LR schedule, checkpoint save/load, plot
+│   ├── test_stage4.py   # dropout, LR schedule, checkpoint save/load, plot
+│   └── test_stage5.py   # temperature, top-k, generate.py
 ├── data/
 │   ├── input.txt        # the training corpus
 │   └── README.md        # dataset source & license
@@ -216,7 +281,7 @@ llm-from-scratch/
 └── LICENSE              # MIT
 ```
 
-More files (`generate.py`, `app.py`, …) arrive in later stages.
+`app.py` (the live demo) arrives in Stage 7.
 
 ---
 

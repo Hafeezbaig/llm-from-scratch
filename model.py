@@ -16,6 +16,9 @@ self-attention.
 Stage 4 added dropout: while training, a random fraction of the numbers in a few
 places is zeroed on every step, so the model can't lean on any single path and
 just memorise the training text. ``model.eval()`` switches it off.
+
+Stage 5 added two knobs for writing (``next_char_probs``): ``temperature``
+(how bold each pick is) and ``top_k`` (only the k best guesses may be picked).
 """
 
 from __future__ import annotations
@@ -25,6 +28,34 @@ import torch.nn as nn
 from torch.nn import functional as F
 
 import config
+
+
+def next_char_probs(logits: torch.Tensor,
+                    temperature: float = 1.0,
+                    top_k: int | None = None) -> torch.Tensor:
+    """Turn next-character scores into the odds used for the dice roll.
+
+    ``logits`` is ``(B, vocab_size)``: one score per possible next character.
+
+    * ``temperature`` divides every score before softmax. Below 1 the gaps
+      between scores grow, so the favourite gets even more likely (safer, more
+      repetitive). Above 1 the gaps shrink, so long shots get a real chance
+      (bolder, more mistakes). Exactly 1 keeps the model's own odds.
+    * ``top_k`` keeps only the ``k`` highest scores. Every other character gets
+      probability 0, so it can never be picked. ``top_k=1`` always picks the
+      favourite. ``None`` keeps every character.
+    """
+    if temperature <= 0:
+        raise ValueError("temperature must be above 0 "
+                         "(to always pick the favourite, use top_k=1)")
+    logits = logits / temperature
+    if top_k is not None:
+        if top_k < 1:
+            raise ValueError("top_k must be at least 1 (or None to keep everything)")
+        k = min(top_k, logits.size(-1))
+        kth_best = torch.topk(logits, k, dim=-1).values[:, -1:]  # (B, 1)
+        logits = logits.masked_fill(logits < kth_best, float("-inf"))
+    return F.softmax(logits, dim=-1)  # the -inf scores become probability 0
 
 
 class Head(nn.Module):
@@ -188,15 +219,21 @@ class GPT(nn.Module):
         return logits, loss
 
     @torch.no_grad()
-    def generate(self, idx: torch.Tensor, max_new_tokens: int) -> torch.Tensor:
-        """Extend ``idx`` (B, T) by ``max_new_tokens`` sampled characters."""
+    def generate(self, idx: torch.Tensor, max_new_tokens: int,
+                 temperature: float = 1.0,
+                 top_k: int | None = None) -> torch.Tensor:
+        """Extend ``idx`` (B, T) by ``max_new_tokens`` sampled characters.
+
+        ``temperature`` and ``top_k`` reshape the odds before each dice roll
+        (see ``next_char_probs``). The defaults leave them unchanged.
+        """
         for _ in range(max_new_tokens):
             # The position table only has block_size rows, so the model can only
             # look at the last block_size characters.
             idx_cond = idx[:, -self.block_size:]
             logits, _ = self(idx_cond)
             logits = logits[:, -1, :]                           # (B, C) last position only
-            probs = F.softmax(logits, dim=-1)                   # scores -> probabilities
+            probs = next_char_probs(logits, temperature, top_k)  # scores -> reshaped odds
             idx_next = torch.multinomial(probs, num_samples=1)  # (B, 1) weighted dice roll
             idx = torch.cat((idx, idx_next), dim=1)             # (B, T + 1)
         return idx
