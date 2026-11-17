@@ -12,3 +12,5 @@ setup: |                  # runs when the machine is first set up
 
 run: |                    # the actual job
   python -u train.py
+  # Stage 6 experiment instead (about 17 min of training on an L4):
+  # python -u experiments/model_sizes.py
