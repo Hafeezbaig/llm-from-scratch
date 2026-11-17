@@ -1,5 +1,7 @@
 # Stage 3, explained simply
 
+> **Heads-up:** Stage 4 made the model bigger, so [config.py](../config.py) now holds the Stage 4 sizes. The sizes in these notes (`N_EMBD = 128`, `N_HEAD = 4`, `N_LAYER = 4`) are the Stage 3 ones, and a comment in `config.py` keeps them.
+
 ## Where we left off
 Robot 1 (Stage 2) had a **one-letter memory**. It could only see the character in front of it, so it got stuck at a loss of 2.38.
 
@@ -195,4 +197,4 @@ And one rule: *never peek at the next seat.*
 2. The next day, before you read anything, write the five words from memory. Then check.
 3. Run `.venv/bin/python tests/test_stage3.py`. Then open [tests/test_stage3.py](../tests/test_stage3.py), find `test_head_cannot_see_the_future`, and read its two `assert` lines: the past stays the same, and the future changes.
 4. Open [model.py](../model.py) and find the pieces in order: `Head`, `MultiHeadAttention`, `FeedForward`, `Block`, `GPT`.
-5. **Experiment:** in [config.py](../config.py), change `N_LAYER` from `4` to `1`. Before running, write down your guess for the final val loss: closer to 2.38 or to 1.22? Then run `.venv/bin/python train.py` (it's faster with one round), compare with your guess, and set it back to `4`.
+5. **Experiment:** in [config.py](../config.py), note the value of `N_LAYER`, then change it to `1`. Before running, write down your guess for the final val loss: closer to 2.38 or to 1.22? Then run `.venv/bin/python train.py` (it's faster with one round), compare with your guess, and set it back. This run replaces the saved model and the graph, so run `train.py` once more afterwards to get them back.

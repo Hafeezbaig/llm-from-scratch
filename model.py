@@ -12,6 +12,10 @@ The bigram only ever sees the current character. Here, every position can look
 back at all the earlier characters in its window (up to ``BLOCK_SIZE``) and
 decide which of them matter for guessing the next one. That looking back is
 self-attention.
+
+Stage 4 added dropout: while training, a random fraction of the numbers in a few
+places is zeroed on every step, so the model can't lean on any single path and
+just memorise the training text. ``model.eval()`` switches it off.
 """
 
 from __future__ import annotations
@@ -38,7 +42,8 @@ class Head(nn.Module):
     softmax, and the output is the weighted mix of the values.
     """
 
-    def __init__(self, n_embd: int, head_size: int, block_size: int) -> None:
+    def __init__(self, n_embd: int, head_size: int, block_size: int,
+                 dropout: float = 0.0) -> None:
         super().__init__()
         self.key = nn.Linear(n_embd, head_size, bias=False)
         self.query = nn.Linear(n_embd, head_size, bias=False)
@@ -47,6 +52,7 @@ class Head(nn.Module):
         # may only look at itself and earlier positions. A buffer moves to the
         # device with the model but is never trained.
         self.register_buffer("tril", torch.tril(torch.ones(block_size, block_size)))
+        self.dropout = nn.Dropout(dropout)
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         B, T, C = x.shape
@@ -58,6 +64,7 @@ class Head(nn.Module):
         wei = q @ k.transpose(-2, -1) * k.shape[-1] ** -0.5      # (B, T, T)
         wei = wei.masked_fill(self.tril[:T, :T] == 0, float("-inf"))
         wei = F.softmax(wei, dim=-1)  # each row now sums to 1
+        wei = self.dropout(wei)       # training only: randomly ignore some links
         v = self.value(x)  # (B, T, head_size)
         return wei @ v     # (B, T, head_size)
 
@@ -70,16 +77,18 @@ class MultiHeadAttention(nn.Module):
     result to its input.
     """
 
-    def __init__(self, n_embd: int, n_head: int, block_size: int) -> None:
+    def __init__(self, n_embd: int, n_head: int, block_size: int,
+                 dropout: float = 0.0) -> None:
         super().__init__()
         head_size = n_embd // n_head
         self.heads = nn.ModuleList(
-            Head(n_embd, head_size, block_size) for _ in range(n_head))
+            Head(n_embd, head_size, block_size, dropout) for _ in range(n_head))
         self.proj = nn.Linear(n_embd, n_embd)
+        self.dropout = nn.Dropout(dropout)
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         out = torch.cat([h(x) for h in self.heads], dim=-1)  # (B, T, n_embd)
-        return self.proj(out)
+        return self.dropout(self.proj(out))
 
 
 class FeedForward(nn.Module):
@@ -90,12 +99,13 @@ class FeedForward(nn.Module):
     original transformer paper.
     """
 
-    def __init__(self, n_embd: int) -> None:
+    def __init__(self, n_embd: int, dropout: float = 0.0) -> None:
         super().__init__()
         self.net = nn.Sequential(
             nn.Linear(n_embd, 4 * n_embd),
             nn.ReLU(),
             nn.Linear(4 * n_embd, n_embd),
+            nn.Dropout(dropout),
         )
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
@@ -114,12 +124,13 @@ class Block(nn.Module):
       at every position at a steady scale.
     """
 
-    def __init__(self, n_embd: int, n_head: int, block_size: int) -> None:
+    def __init__(self, n_embd: int, n_head: int, block_size: int,
+                 dropout: float = 0.0) -> None:
         super().__init__()
         self.ln1 = nn.LayerNorm(n_embd)
-        self.sa = MultiHeadAttention(n_embd, n_head, block_size)
+        self.sa = MultiHeadAttention(n_embd, n_head, block_size, dropout)
         self.ln2 = nn.LayerNorm(n_embd)
-        self.ffwd = FeedForward(n_embd)
+        self.ffwd = FeedForward(n_embd, dropout)
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         x = x + self.sa(self.ln1(x))
@@ -142,7 +153,8 @@ class GPT(nn.Module):
                  n_embd: int = config.N_EMBD,
                  n_head: int = config.N_HEAD,
                  n_layer: int = config.N_LAYER,
-                 block_size: int = config.BLOCK_SIZE) -> None:
+                 block_size: int = config.BLOCK_SIZE,
+                 dropout: float = config.DROPOUT) -> None:
         super().__init__()
         assert n_embd % n_head == 0, "n_embd must split evenly across the heads"
         self.block_size = block_size
@@ -150,7 +162,7 @@ class GPT(nn.Module):
         self.token_embedding_table = nn.Embedding(vocab_size, n_embd)
         self.position_embedding_table = nn.Embedding(block_size, n_embd)
         self.blocks = nn.Sequential(
-            *[Block(n_embd, n_head, block_size) for _ in range(n_layer)])
+            *[Block(n_embd, n_head, block_size, dropout) for _ in range(n_layer)])
         self.ln_f = nn.LayerNorm(n_embd)
         self.lm_head = nn.Linear(n_embd, vocab_size)
 

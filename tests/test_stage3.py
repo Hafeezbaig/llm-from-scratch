@@ -94,6 +94,7 @@ def test_gpt_cannot_see_the_future():
     torch.manual_seed(config.SEED)
     model = GPT(vocab_size=20, n_embd=N_EMBD, n_head=N_HEAD, n_layer=N_LAYER,
                 block_size=BLOCK)
+    model.eval()  # dropout off (Stage 4), so the two runs are comparable
     idx = torch.randint(20, (1, BLOCK))
     changed = idx.clone()
     changed[0, -1] = (idx[0, -1] + 1) % 20

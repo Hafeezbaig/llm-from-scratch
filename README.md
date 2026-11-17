@@ -21,8 +21,8 @@ Apple Silicon (MPS).
 
 - [x] **Stage 1 — Data + tokenizer**
 - [x] **Stage 2 — Bigram baseline** (a deliberately dumb model to beat)
-- [x] **Stage 3 — The transformer** (self-attention, multi-head, blocks) ← *you are here*
-- [ ] Stage 4 — Train properly + loss curves
+- [x] **Stage 3 — The transformer** (self-attention, multi-head, blocks)
+- [x] **Stage 4 — Train properly + loss curves** ← *you are here*
 - [ ] Stage 5 — Generation (temperature, top-k sampling)
 - [ ] Stage 6 — Refactor, one experiment, writeup
 - [ ] Stage 7 — Live demo (FastAPI backend)
@@ -121,8 +121,11 @@ python tests/test_stage1.py
 python tests/test_stage2.py
 python bigram.py
 
-# 5. See Stage 3 working: tests, then train the transformer and generate text
+# 5. See Stage 3 working: the transformer's pieces
 python tests/test_stage3.py
+
+# 6. See Stage 4 working: tests, then train the full model (~20 min on MPS)
+python tests/test_stage4.py
 python train.py
 ```
 
@@ -130,7 +133,8 @@ Stage 1 prints the tests passing, followed by a demo showing the vocabulary
 size, an encode/decode round-trip, and a sample batch mapping each character to
 its next-character target. `bigram.py` and `train.py` each print a sample from
 the untrained model, the train/val loss as training goes, then a sample after
-training.
+training. `train.py` also saves the best model to `checkpoints/gpt.pt` and the
+loss graph to `assets/loss_curve.png`.
 
 ---
 
@@ -143,17 +147,22 @@ llm-from-scratch/
 ├── data.py              # train/val split + random batching
 ├── bigram.py            # Stage 2 baseline: a one-table model to beat
 ├── model.py             # Stage 3 transformer: attention, blocks, the GPT class
-├── train.py             # training loop (shared by both models) + trains the GPT
+├── train.py             # training loop (shared by both models), LR schedule,
+│                        #   checkpoints, loss plot + trains the GPT
 ├── scripts/
 │   └── prepare_data.py  # downloads & cleans the dataset (reproducible)
 ├── tests/
 │   ├── test_stage1.py   # tokenizer + batching tests, with a live demo
 │   ├── test_stage2.py   # bigram model, training and generation tests
-│   └── test_stage3.py   # each transformer piece, no-peeking check, training
+│   ├── test_stage3.py   # each transformer piece, no-peeking check, training
+│   └── test_stage4.py   # dropout, LR schedule, checkpoint save/load, plot
 ├── data/
 │   ├── input.txt        # the training corpus
 │   └── README.md        # dataset source & license
 ├── notes/               # plain-English learning notes, one per stage
+├── assets/
+│   └── loss_curve.png   # training graph (made by train.py)
+├── checkpoints/         # saved models (made by train.py, not committed)
 ├── requirements.txt
 └── LICENSE              # MIT
 ```
