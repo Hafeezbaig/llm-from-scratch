@@ -101,6 +101,53 @@ indentation, though the sentences don't make sense yet:
   (one head and the whole model), generating past the context window, and
   training lowering the loss. See [tests/test_stage3.py](tests/test_stage3.py).
 
+### Stage 4 — done
+
+The same transformer, scaled up and trained the way real models are:
+
+- **Bigger:** 384-number embeddings, 6 heads, 6 blocks, so **10,768,230
+  parameters** (about 13× Stage 3). Context (128) and batch size (32) are
+  unchanged.
+- **Dropout (0.2):** randomly switches off connections while training, so the
+  model can't just memorise the text. It's off when measuring and generating.
+- **Learning-rate schedule:** 100 warm-up steps up to 1e-3, then a cosine glide
+  down to 1e-4 by the last step.
+- **Checkpoints:** the model with the best validation loss so far is saved to
+  `checkpoints/gpt.pt`, along with its settings and vocabulary, so it can be
+  rebuilt without retraining.
+- **Loss curves:** train and validation loss are plotted to
+  `assets/loss_curve.png`.
+
+![Training and validation loss](assets/loss_curve.png)
+
+| | Val loss |
+|---|---|
+| Bigram baseline (Stage 2) | 2.38 |
+| Small transformer (Stage 3) | 1.22 |
+| **Stage 4, trained 6,000 steps** | **1.08** (train 1.05) |
+
+The two curves stay close together, so the model is learning patterns rather
+than memorising the training text.
+
+Trained on a rented cloud GPU (an NVIDIA L4 spot machine on Google Cloud) in
+**7.4 minutes** (about 17 min on an M5 Mac), for about **$0.07**. The recipe is
+[sky.yaml](sky.yaml), run with SkyPilot.
+
+Sample after training: dialogue, speaker tags and paragraphs look like the books,
+but the story still doesn't make sense:
+
+```
+“It was nothing as a man who was hardly rather in correct,” said Holmes.
+“You must prove with his drawing-room, but her husband and made it would
+all round.”
+
+“Yes, I will not have the proof to do to be cold that he did.”
+```
+
+- **Tests** — dropout on only while training, the warm-up/glide-down schedule,
+  saving only on a new best, a checkpoint rebuilding the identical model, and the
+  plot being a real PNG. See [tests/test_stage4.py](tests/test_stage4.py).
+
 ---
 
 ## Quickstart
@@ -124,7 +171,8 @@ python bigram.py
 # 5. See Stage 3 working: the transformer's pieces
 python tests/test_stage3.py
 
-# 6. See Stage 4 working: tests, then train the full model (~20 min on MPS)
+# 6. See Stage 4 working: tests, then train the full model
+#    (~17 min on an M5 Mac at full load, or ~7 min on a cloud GPU via sky.yaml)
 python tests/test_stage4.py
 python train.py
 ```
@@ -163,6 +211,7 @@ llm-from-scratch/
 ├── assets/
 │   └── loss_curve.png   # training graph (made by train.py)
 ├── checkpoints/         # saved models (made by train.py, not committed)
+├── sky.yaml             # recipe for training on a cloud GPU with SkyPilot
 ├── requirements.txt
 └── LICENSE              # MIT
 ```

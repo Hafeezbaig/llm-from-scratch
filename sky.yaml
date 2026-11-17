@@ -1,0 +1,14 @@
+# How to run this project in the cloud. Made by cloud-compute; safe to edit and commit.
+# Which cloud (GCP or AWS) is NOT chosen here: it comes from cloud-compute/config.env.
+
+resources:
+  accelerators: [L4:1, T4:1]   # GPU choices, tried in order; first one free wins
+  disk_size: 100          # GB
+
+workdir: .                # upload this project folder (skips what .gitignore lists)
+
+setup: |                  # runs when the machine is first set up
+  if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
+
+run: |                    # the actual job
+  python -u train.py
